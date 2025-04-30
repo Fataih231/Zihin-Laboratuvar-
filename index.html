@@ -1,0 +1,177 @@
+<!DOCTYPE html><html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zihin Laboratuvarı</title>
+  <style>
+    body { font-family: Arial, sans-serif; background-color: #111; color: #eee; margin:0; padding:0; }
+    #container { max-width:600px; margin:20px auto; padding:20px; background:#222; border-radius:8px; box-shadow:0 0 10px rgba(0,0,0,0.5); }
+    h1 { text-align:center; margin-bottom:20px; }
+    .menu, .scene { display:none; }
+    .menu.active, .scene.active { display:block; }
+    button { display:block; width:100%; margin:10px 0; padding:10px; background:#444; color:#eee; border:none; border-radius:4px; font-size:1rem; cursor:pointer; }
+    button:hover { background:#555; }
+    .choices { margin-top:20px; }
+    .overlay { display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); align-items:center; justify-content:center; }
+    .overlay.active { display:flex; }
+    .popup { background:#222; padding:20px; border-radius:8px; max-width:400px; width:90%; color:#eee; }
+    .popup h2 { margin-top:0; text-align:center; }
+    .popup ul { list-style:none; padding:0; max-height:300px; overflow-y:auto; }
+    .popup li { padding:8px 0; border-bottom:1px solid #444; opacity:0.5; }
+    .popup li.unlocked { opacity:1; font-weight:bold; }
+    .notif { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:#333; color:#fff; padding:10px 20px; border-radius:5px; opacity:0; transition:opacity .3s; z-index:1000; }
+    .notif.active { opacity:1; }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <div id="menu" class="menu active">
+      <h1>Zihin Laboratuvarı</h1>
+      <button id="startBtn">Oyuna Başla</button>
+      <button id="achievementsBtn">Başarımlar</button>
+      <button id="creditsBtn">Emeği Geçenler</button>
+    </div>
+    <div id="scene" class="scene">
+      <div id="text"></div>
+      <div class="choices"></div>
+    </div>
+  </div>  <div id="achievementsOverlay" class="overlay">
+    <div class="popup">
+      <h2>Başarımlar</h2>
+      <ul id="achievementsList"></ul>
+      <button id="closeAchievements">Kapat</button>
+    </div>
+  </div>  <div id="creditsOverlay" class="overlay">
+    <div class="popup">
+      <h2>Emeği Geçenler</h2>
+      <p>Proje: Fatih & ChatGPT</p>
+      <button id="closeCredits">Kapat</button>
+    </div>
+  </div>  <div id="notif" class="notif"></div>  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // Başarımlar verisi
+      const achievementsData = {
+        voidEnd:            { name: 'Sonsuz Karanlık', unlocked: false },
+        creatureEnd:        { name: 'Yaratık Yakalama', unlocked: false },
+        lockedEnd:          { name: 'Sonsuz Kilit', unlocked: false },
+        stillEnd:           { name: 'Felç', unlocked: false },
+        memoryEnd:          { name: 'Kayıp Hatıra', unlocked: false },
+        echoEnd:            { name: 'Yankı', unlocked: false },
+        darkLabEnd:         { name: 'Karanlık Laboratuvar', unlocked: false },
+        fracturedMindEnd:   { name: 'Parçalanmış Zihin', unlocked: false },
+        lastChoiceEnd:      { name: 'Son Tercih', unlocked: false },
+        crossroadsEnd:      { name: 'Belirsiz Yol', unlocked: false },
+        silentScreamEnd:    { name: 'Sessiz Çığlık', unlocked: false },
+        shadowsEnd:         { name: 'Gölgeler Arasında', unlocked: false },
+        experimentNightmareEnd: { name: 'Deney Kabusu', unlocked: false },
+        mirrorEnd:          { name: 'Ayna Yansıması', unlocked: false },
+        labyrinthEnd:       { name: 'Labirent', unlocked: false },
+        injectionEnd:       { name: 'Zehir Enjeksiyonu', unlocked: false },
+        virusEnd:           { name: 'Viral Korku', unlocked: false },
+        timeLoopEnd:        { name: 'Zaman Döngüsü', unlocked: false },
+        sacrificeEnd:       { name: 'Kurban', unlocked: false },
+        revelationEnd:      { name: 'Vahiy', unlocked: false }
+      };
+
+      // Sahne verisi
+      const scenes = {
+        start:           { text: "Uyanıyorsun. Soğuk. Metal bir masa...", choices: [ { text: "Çevreye bakın", next: "lookAround" }, { text: "Bağırmaya çalış", next: "shout" } ] },
+        lookAround:      { text: "Karanlık bir koridor...", choices: [ { text: "Kapıyı aç", next: "openDoor" }, { text: "Camı incele", next: "inspectGlass" } ] },
+        shout:           { text: "Sesin yankılanıyor...", choices: [ { text: "Çevreye bakın", next: "lookAround" }, { text: "Panik yap", next: "panic" } ] },
+        openDoor:        { text: "Kapı zorlanıyor...", choices: [ { text: "İlerleyin", next: "voidEnd" }, { text: "Geri dön", next: "start" } ] },
+        inspectGlass:    { text: "Camda kan lekeleri...", choices: [ { text: "Sesi takip et", next: "creatureEnd" }, { text: "Kaç geri", next: "start" } ] },
+        panic:           { text: "Panik içinde etrafa vuruyorsun...", choices: [ { text: "Kapıyı zorla", next: "lockedEnd" }, { text: "Hareketsiz kal", next: "stillEnd" } ] },
+        voidEnd:         { text: "Oyun Bitti: Sonsuz karanlığa karıştınız.", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] },
+        creatureEnd:     { text: "Oyun Bitti: Bir yaratık seni yakaladı.", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] },
+        lockedEnd:       { text: "Oyun Bitti: Kapı sonsuza dek kilitlendi.", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] },
+        stillEnd:        { text: "Oyun Bitti: Korkun felç etti...", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] },
+        memoryEnd:       { text: "Oyun Bitti: Kayıp anıların gölgesinde kayboldunuz.", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] },
+        echoEnd:         { text: "Oyun Bitti: Yankılanan çığlık sonsuza dek kaldı.", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] },
+        darkLabEnd:      { text: "Oyun Bitti: Laboratuvar karanlığında boğuldunuz.", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] },
+        fracturedMindEnd:{ text: "Oyun Bitti: Zihniniz parçalandı.", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] },
+        lastChoiceEnd:   { text: "Oyun Bitti: Son tercihiniz ölüm getirdi.", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] },
+        crossroadsEnd:   { text: "Oyun Bitti: Yolun sonu belirsiz bir boşluk.", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] },
+        silentScreamEnd: { text: "Oyun Bitti: Sessiz çığlığın labirent duvarlarında yankılandı.", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] },
+        shadowsEnd:      { text: "Oyun Bitti: Gölgeler arasında kayboldunuz.", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] },
+        experimentNightmareEnd:{ text: "Oyun Bitti: Deney kabusuyla yüzleştiniz.", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] },
+        mirrorEnd:       { text: "Oyun Bitti: Ayna yansımanız size ihanet etti.", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] },
+        labyrinthEnd:    { text: "Oyun Bitti: Labirent çıkmazında sıkıştınız.", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] },
+        injectionEnd:    { text: "Oyun Bitti: Zehirli enjeksiyon etkisini gösterdi.", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] },
+        virusEnd:        { text: "Oyun Bitti: Viral korkunun kurbanı oldunuz.", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] },
+        timeLoopEnd:     { text: "Oyun Bitti: Zaman döngüsünde sonsuza dek sıkıştınız.", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] },
+        sacrificeEnd:    { text: "Oyun Bitti: Bir kurban oldunuz.", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] },
+        revelationEnd:   { text: "Oyun Bitti: Vahiy aklınızı yıktı.", choices: [ { text: "Yeniden Başla", next: "start" }, { text: "Ana Menüye Dön", next: "menu" } ] }
+      };
+
+      // DOM Elementleri
+      const menu = document.getElementById('menu');
+      const sceneEl = document.getElementById('scene');
+      const textEl = document.getElementById('text');
+      const choicesEl = document.querySelector('.choices');
+      const achOverlay = document.getElementById('achievementsOverlay');
+      const creditsOverlay = document.getElementById('creditsOverlay');
+      const achList = document.getElementById('achievementsList');
+      const notifEl = document.getElementById('notif');
+
+      // Olay Dinleyicileri
+      document.getElementById('startBtn').addEventListener('click', () => showScene('start'));
+      document.getElementById('achievementsBtn').addEventListener('click', () => achOverlay.classList.add('active'));
+      document.getElementById('closeAchievements').addEventListener('click', () => achOverlay.classList.remove('active'));
+      document.getElementById('creditsBtn').addEventListener('click', () => creditsOverlay.classList.add('active'));
+      document.getElementById('closeCredits').addEventListener('click', () => creditsOverlay.classList.remove('active'));
+
+      // Başarım Listesini Güncelle
+      function updateAchievementsList() {
+        achList.innerHTML = ''; 
+        Object.keys(achievementsData).forEach(key => {
+          const li = document.createElement('li');
+          li.textContent = achievementsData[key].name;
+          if (achievementsData[key].unlocked) li.classList.add('unlocked');
+          achList.appendChild(li);
+        });
+      }
+
+      // Bildirim Göster
+      function showNotification(msg) {
+        notifEl.textContent = msg;
+        notifEl.classList.add('active');
+        setTimeout(() => notifEl.classList.remove('active'), 3000);
+      }
+
+      // Menü Göster
+      function showMenu() {
+        menu.classList.add('active');
+        sceneEl.classList.remove('active');
+      }
+
+      // Sahne Göster ve Başarım Kilidi Aç
+      function showScene(key) {
+        const scene = scenes[key];
+        if (!scene) return showMenu();
+        menu.classList.remove('active');
+        sceneEl.classList.add('active');
+        textEl.textContent = scene.text;
+        choicesEl.innerHTML = '';
+        // Başarım Kilidi Açılacaksa
+        if (achievementsData[key] && !achievementsData[key].unlocked) {
+          achievementsData[key].unlocked = true;
+          updateAchievementsList();
+          showNotification(`Başarım Kilidi Açıldı: ${achievementsData[key].name}`);
+        }
+        scene.choices.forEach(choice => {
+          const btn = document.createElement('button');
+          btn.textContent = choice.text;
+          btn.addEventListener('click', () => {
+            if (choice.next === 'menu') return showMenu();
+            showScene(choice.next);
+          });
+          choicesEl.appendChild(btn);
+        });
+      }
+
+      // Başlangıç Ayarları
+      updateAchievementsList();
+      showMenu();
+    });
+  </script></body>
+</html>
